@@ -7,11 +7,38 @@ terraform {
       version = "6.49.2"
     }
   }
+
+  backend "gcs" {
+    bucket = "tfstate-gke-showroom"
+    prefix = "terraform/state"
+  }
 }
 
 provider "google" {
   credentials = file(var.credentials_file)
   project     = var.project_id
+}
+
+# Create GCS bucket for Terraform state
+resource "google_storage_bucket" "terraform_state" {
+  name          = "tfstate-gke-showroom"
+  location      = "US-EAST1"
+  force_destroy = false
+
+  versioning {
+    enabled = true
+  }
+
+  lifecycle_rule {
+    condition {
+      age = 30
+    }
+    action {
+      type = "Delete"
+    }
+  }
+
+  uniform_bucket_level_access = true
 }
 
 # Pool
