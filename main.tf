@@ -91,3 +91,25 @@ resource "google_service_account_iam_member" "github_any_repo_under_me" {
   member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github_pool.name}/attribute.repository_owner/${var.github_owner}"
 }
 
+# Enable required APIs
+resource "google_project_service" "sts" {
+  project                    = var.project_id
+  service                    = "sts.googleapis.com"
+  disable_dependent_services = true
+  disable_on_destroy         = false
+}
+
+resource "google_project_service" "cloudresourcemanager" {
+  project                    = var.project_id
+  service                    = "cloudresourcemanager.googleapis.com"
+  disable_dependent_services = true
+  disable_on_destroy         = false
+}
+
+resource "google_project_service" "iamcredentials" {
+  project                    = var.project_id
+  service                    = "iamcredentials.googleapis.com"
+  disable_dependent_services = true
+  disable_on_destroy         = false
+}
+
