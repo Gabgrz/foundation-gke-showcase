@@ -90,3 +90,4 @@ resource "google_service_account_iam_member" "github_any_repo_under_me" {
   role               = "roles/iam.workloadIdentityUser"
   member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github_pool.name}/attribute.repository_owner/${var.github_owner}"
 }
+
