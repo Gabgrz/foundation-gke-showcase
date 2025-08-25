@@ -5,7 +5,7 @@ This repository sets up the foundation infrastructure for a GKE (Google Kubernet
 - Workload Identity Federation for GitHub Actions
 - A deployer service account
 - Enabling required APIs (STS, Cloud Resource Manager, IAM Credentials)
-- A GCS bucket for Terraform remote state storage
+- Configuration for remote state in a GCS bucket (created manually via script)
 
 The setup allows secure deployments from GitHub Actions without long-lived credentials.
 
@@ -19,9 +19,36 @@ The setup allows secure deployments from GitHub Actions without long-lived crede
 
 ## Setup Instructions
 
-### 1. Configure Variables
+### 1. Authenticate with Google Cloud
 
-Create a `terraform.tfvars` file in the root directory with the following content (replace with your values):
+Log in to your Google account via the CLI:
+
+```
+gcloud auth login
+```
+
+Set your project ID (replace `gke-showroom` with your actual project ID):
+
+```
+gcloud config set project gke-showroom
+```
+
+Obtain application default credentials:
+
+```
+gcloud auth application-default login
+```
+
+### 2. Create Service Account
+
+In the GCP Console:
+- Create a new service account with the "Owner" role.
+- Download the JSON key file.
+- Store it securely outside the repo.
+
+### 3. Configure Variables
+
+Create a `terraform.tfvars` file in the root directory with:
 
 ```
 credentials_file = "/path/to/your/service-account-key.json"
@@ -29,50 +56,54 @@ project_id       = "gke-showroom"
 github_owner     = "your-github-username"
 ```
 
-- `credentials_file`: Path to your GCP service account key JSON (used for local runs; optional in CI).
+- `credentials_file`: Path to your GCP SA key JSON (used for local runs; optional in CI).
 - `project_id`: Your GCP project ID.
 - `github_owner`: Your GitHub username or organization.
 
-### 2. Bootstrap the Terraform State Bucket
+### 4. Create GCS Bucket for Terraform State
 
-Since the GCS bucket for state is managed by Terraform, we need to bootstrap it:
+The bucket is created manually using the provided script:
 
-1. **Comment out the backend block** in `main.tf` (lines around the `backend "gcs"` section).
-
-2. Initialize and apply Terraform locally:
+1. Ensure the script is executable:
 
    ```
-   terraform init
-   terraform plan
-   terraform apply
+   chmod +x bucket/create-bucket.sh
    ```
 
-   This creates the bucket and other resources using local state.
-
-3. **Uncomment the backend block** in `main.tf`.
-
-4. Re-initialize Terraform and migrate state to GCS:
+2. Run the script (assumes `lifecycle.json` is in the `bucket/` directory):
 
    ```
-   terraform init -migrate-state
+   ./bucket/create-bucket.sh
    ```
 
-   Confirm the migration when prompted.
+This creates `tfstate-gke-showroom` with versioning, lifecycle rules, and security settings.
 
-Now your state is stored remotely in `tfstate-gke-showroom` with versioning and lifecycle rules.
+### 5. Apply Terraform
 
-### 3. Verify and Use
+With the bucket created, initialize and apply:
 
-- Run `terraform plan` to see changes.
-- The configuration enables necessary APIs automatically.
+```
+terraform init
+terraform plan
+terraform apply
+```
+
+The backend is configured to use the bucket, so state will be stored remotely from the first apply.
+
+If you have existing local state, migrate it:
+
+```
+terraform init -migrate-state
+```
 
 ## Resources Created
 
-- **GCS Bucket**: `tfstate-gke-showroom` in `US-EAST1` for state storage, with versioning, lifecycle rules, and security settings.
 - **Workload Identity Pool and Provider**: For GitHub OIDC integration.
 - **Service Account**: `deployer` for deployments.
 - **IAM Binding**: Allows GitHub repos under the specified owner to impersonate the SA.
 - **APIs Enabled**: `sts.googleapis.com`, `cloudresourcemanager.googleapis.com`, `iamcredentials.googleapis.com`.
+
+(Note: GCS bucket is created via script, not Terraform.)
 
 ## Variables
 
@@ -99,7 +130,7 @@ To set up:
 
 - **Security**: Use Workload Identity for CI; avoid committing keys.
 - **State Management**: Remote state prevents conflicts in teams.
-- **Destroy Resources**: Run `terraform destroy` for cleanup (note: bucket has `prevent_destroy` lifecycle).
+- **Destroy Resources**: Run `terraform destroy` for cleanup.
 - **Extensions**: Add modules for GKE cluster, networking, etc.
 
 For issues, check Terraform logs or GCP console.

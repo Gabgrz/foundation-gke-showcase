@@ -19,36 +19,6 @@ provider "google" {
   project     = var.project_id
 }
 
-resource "google_storage_bucket" "terraform_state" {
-  name                        = "tfstate-gke-showroom" # must be globally unique
-  location                    = "US-EAST1"             # or "US"
-  storage_class               = "STANDARD"
-  uniform_bucket_level_access = true
-  public_access_prevention    = "enforced"
-  force_destroy               = false
-
-  versioning {
-    enabled = true
-  }
-
-  lifecycle_rule {
-    condition {
-      days_since_noncurrent_time = 30 # Deletes only noncurrent versions after 30 days
-    }
-    action {
-      type = "Delete"
-    }
-  }
-
-  lifecycle {
-    prevent_destroy = true # Prevents accidental TF destroy
-  }
-
-  labels = {
-    purpose = "terraform-state"
-  }
-}
-
 # Pool
 resource "google_iam_workload_identity_pool" "github_pool" {
   workload_identity_pool_id = "gh-pool"
