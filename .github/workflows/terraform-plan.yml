@@ -1,0 +1,42 @@
+name: Terraform Plan on PR
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  terraform-plan:
+    runs-on: ubuntu-24.04
+    environment: gke-showroom
+    permissions:
+      contents: read
+      id-token: write  # Required for Workload Identity authentication
+
+    env:  # Add this block for TF vars
+      TF_VAR_project_id: ${{ vars.PROJECT_ID }}
+      TF_VAR_github_org: ${{ vars.GH_ORG }}
+      TF_VAR_github_owner: ${{ vars.GH_OWNER }}
+      TF_VAR_github_repo: ${{ vars.GH_REPO }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.13.0'  # Adjust to your preferred version
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SA }}
+
+      - name: Terraform Init
+        run: terraform init -backend-config="bucket=${{ secrets.GCP_TF_BUCKET }}"
+
+      - name: Terraform Plan
+        run: terraform plan -no-color -out=plan.tfplan
