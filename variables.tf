@@ -1,3 +1,9 @@
+variable "credentials_file" {
+  description = "Path to the GCP service account key file"
+  type        = string
+  default     = null
+}
+
 variable "project_id" {
   description = "Google Cloud Project ID"
   type        = string
