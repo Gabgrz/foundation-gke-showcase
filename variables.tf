@@ -8,10 +8,11 @@ variable "github_org" {
   type        = string
 }
 
+variable "github_owner" {
+  type = string
+}
+
 variable "github_repo" {
   description = "GitHub repository name"
   type        = string
-}
-variable "github_owner" {
-  type = string
 }
