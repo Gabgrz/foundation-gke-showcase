@@ -15,7 +15,7 @@ terraform {
 }
 
 provider "google" {
-  credentials = file(var.credentials_file)
+  credentials = var.credentials_file != null ? file(var.credentials_file) : null
   project     = var.project_id
 }
 
