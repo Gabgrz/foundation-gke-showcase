@@ -1,17 +1,19 @@
-# Foundation GKE Showcase
+# GCP Workload Identity Federation Bootstrap for Terraform CI/CD with GitHub Actions
 
-This repository sets up the foundation infrastructure for a GKE (Google Kubernetes Engine) showcase on Google Cloud Platform (GCP) using Terraform. It includes:
+This repository provides a foundational setup for integrating Google Cloud Platform (GCP) with Terraform and GitHub Actions using Workload Identity Federation. It enables secure, credential-free deployments from CI/CD pipelines to GCP.
 
-- Workload Identity Federation for GitHub Actions
-- A deployer service account
-- Enabling required APIs (STS, Cloud Resource Manager, IAM Credentials)
-- Configuration for remote state in a GCS bucket (created manually via script)
+Key components include:
 
-The setup allows secure deployments from GitHub Actions without long-lived credentials.
+- Workload Identity Federation for GitHub Actions authentication
+- A deployer service account for resource management
+- Enabling essential APIs (STS, Cloud Resource Manager, IAM Credentials)
+- Configuration for remote Terraform state in a GCS bucket (created manually via script)
+
+This bootstrap serves as a secure starting point for any GCP project using Terraform and GitHub Actions.
 
 ## Prerequisites
 
-- A GCP project (e.g., `gke-showroom`) already created.
+- A GCP project (e.g., `your-project-id`) already created.
 - Google Cloud SDK (`gcloud`) installed.
 - Terraform installed (version ~>1.5).
 - A service account with Owner role (or sufficient permissions) and its JSON key file downloaded.
@@ -27,10 +29,10 @@ Log in to your Google account via the CLI:
 gcloud auth login
 ```
 
-Set your project ID (replace `gke-showroom` with your actual project ID):
+Set your project ID (replace `your-project-id` with your actual project ID):
 
 ```
-gcloud config set project gke-showroom
+gcloud config set project your-project-id
 ```
 
 Obtain application default credentials:
@@ -42,7 +44,7 @@ gcloud auth application-default login
 ### 2. Create Service Account
 
 In the GCP Console:
-- Create a new service account with the "Owner" role.
+- Create a new service account with the "Owner" role (or roles tailored to your needs).
 - Download the JSON key file.
 - Store it securely outside the repo.
 
@@ -52,7 +54,7 @@ Create a `terraform.tfvars` file in the root directory with:
 
 ```
 credentials_file = "/path/to/your/service-account-key.json"
-project_id       = "gke-showroom"
+project_id       = "your-project-id"
 github_owner     = "your-github-username"
 ```
 
@@ -76,7 +78,7 @@ The bucket is created manually using the provided script:
    ./bucket/create-bucket.sh
    ```
 
-This creates `tfstate-gke-showroom` with versioning, lifecycle rules, and security settings.
+This creates `tfstate-gke-showroom` (customize the script if needed for your project) with versioning, lifecycle rules, and security settings.
 
 ### 5. Apply Terraform
 
@@ -98,9 +100,9 @@ terraform init -migrate-state
 
 ## Resources Created
 
-- **Workload Identity Pool and Provider**: For GitHub OIDC integration.
-- **Service Account**: `deployer` for deployments.
-- **IAM Binding**: Allows GitHub repos under the specified owner to impersonate the SA.
+- **Workload Identity Pool and Provider**: For secure GitHub OIDC integration with GCP.
+- **Service Account**: `deployer` for managing deployments and resources.
+- **IAM Binding**: Allows GitHub repositories under the specified owner to impersonate the service account.
 - **APIs Enabled**: `sts.googleapis.com`, `cloudresourcemanager.googleapis.com`, `iamcredentials.googleapis.com`.
 
 (Note: GCS bucket is created via script, not Terraform.)
@@ -115,22 +117,22 @@ terraform init -migrate-state
 
 ## CI/CD with GitHub Actions
 
-This repo includes a workflow (`.github/workflows/terraform-plan.yml`) for running Terraform plan on pull requests.
+This repo includes an example workflow (`.github/workflows/terraform-plan.yml`) for running Terraform plan on pull requests.
 
-- The workflow uses Workload Identity Federation to authenticate to GCP without secrets.
-- Ensure your GitHub repo settings allow Actions to access the Workload Identity Provider.
-- Grant the deployer SA necessary roles (e.g., for GKE creation in future modules).
+- The workflow leverages Workload Identity Federation to authenticate to GCP without storing secrets.
+- Ensure your GitHub repo settings permit Actions to access the Workload Identity Provider.
+- Grant the deployer SA appropriate roles based on your project's requirements.
 
 To set up:
 
-1. In GCP IAM, ensure the binding is applied.
-2. In GitHub repo settings > Actions > General, allow workflows to run.
+1. In GCP IAM, verify the binding is applied.
+2. In GitHub repo settings > Actions > General, enable workflows to run.
 
 ## Best Practices
 
-- **Security**: Use Workload Identity for CI; avoid committing keys.
-- **State Management**: Remote state prevents conflicts in teams.
-- **Destroy Resources**: Run `terraform destroy` for cleanup.
-- **Extensions**: Add modules for GKE cluster, networking, etc.
+- **Security**: Rely on Workload Identity for CI authentication; never commit static credentials.
+- **State Management**: Use remote state to avoid conflicts in collaborative environments.
+- **Destroy Resources**: Execute `terraform destroy` for cleanup.
+- **Extensions**: Expand with Terraform modules for your specific infrastructure needs (e.g., compute, storage, networking).
 
-For issues, check Terraform logs or GCP console.
+For issues, consult Terraform logs or the GCP console.
