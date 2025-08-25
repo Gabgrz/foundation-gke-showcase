@@ -49,7 +49,6 @@ resource "google_storage_bucket" "terraform_state" {
   }
 }
 
-
 # Pool
 resource "google_iam_workload_identity_pool" "github_pool" {
   workload_identity_pool_id = "gh-pool"
