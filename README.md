@@ -7,7 +7,7 @@ Key components include:
 - Workload Identity Federation for GitHub Actions authentication
 - A deployer service account for resource management
 - Enabling essential APIs (STS, Cloud Resource Manager, IAM Credentials)
-- Configuration for remote Terraform state in a GCS bucket (created manually via script)
+- Owner service account and configuration for remote Terraform state in a GCS bucket (created via bootstrap script)
 
 This bootstrap serves as a secure starting point for any GCP project using Terraform and GitHub Actions.
 
@@ -16,7 +16,6 @@ This bootstrap serves as a secure starting point for any GCP project using Terra
 - A GCP project (e.g., `your-project-id`) already created.
 - Google Cloud SDK (`gcloud`) installed.
 - Terraform installed (version ~>1.5).
-- A service account with Owner role (or sufficient permissions) and its JSON key file downloaded.
 - GitHub repository access for configuring Actions.
 
 ## Setup Instructions
@@ -41,12 +40,43 @@ Obtain application default credentials:
 gcloud auth application-default login
 ```
 
-### 2. Create Service Account
+### 2. Bootstrap Service Account and GCS Bucket
 
-In the GCP Console:
-- Create a new service account with the "Owner" role (or roles tailored to your needs).
-- Download the JSON key file.
-- Store it securely outside the repo.
+Run the provided script to create the owner service account and the GCS bucket for Terraform state.
+
+1. Make the script executable:
+
+   ```
+
+   chmod +x bootstrap/bootstrap.sh
+
+   ```
+
+2. Update the `PROJECT_ID` in the script to your project ID.
+
+3. Run the script:
+
+   ```
+
+   ./bootstrap/bootstrap.sh
+
+   ```
+
+This creates:
+
+- The `owner-sa` service account with Owner role.
+- The `tfstate-gke-showroom` GCS bucket with versioning and lifecycle rules (customize the script if needed).
+
+4. Download the JSON key for the service account:
+
+   ```
+
+   gcloud iam service-accounts keys create key.json \
+     --iam-account=owner-sa@your-project-id.iam.gserviceaccount.com
+
+   ```
+
+   Store it securely outside the repo.
 
 ### 3. Configure Variables
 
@@ -62,27 +92,9 @@ github_owner     = "your-github-username"
 - `project_id`: Your GCP project ID.
 - `github_owner`: Your GitHub username or organization.
 
-### 4. Create GCS Bucket for Terraform State
+### 4. Apply Terraform
 
-The bucket is created manually using the provided script:
-
-1. Ensure the script is executable:
-
-   ```
-   chmod +x bucket/create-bucket.sh
-   ```
-
-2. Run the script (assumes `lifecycle.json` is in the `bucket/` directory):
-
-   ```
-   ./bucket/create-bucket.sh
-   ```
-
-This creates `tfstate-gke-showroom` (customize the script if needed for your project) with versioning, lifecycle rules, and security settings.
-
-### 5. Apply Terraform
-
-With the bucket created, initialize and apply:
+With the bootstrap complete, initialize and apply:
 
 ```
 terraform init
@@ -105,7 +117,7 @@ terraform init -migrate-state
 - **IAM Binding**: Allows GitHub repositories under the specified owner to impersonate the service account.
 - **APIs Enabled**: `sts.googleapis.com`, `cloudresourcemanager.googleapis.com`, `iamcredentials.googleapis.com`.
 
-(Note: GCS bucket is created via script, not Terraform.)
+(Note: The owner service account and GCS bucket are created via the bootstrap script, not Terraform.)
 
 ## Variables
 

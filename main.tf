@@ -60,6 +60,12 @@ resource "google_service_account_iam_member" "github_any_repo_under_me" {
   member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github_pool.name}/attribute.repository_owner/${var.github_owner}"
 }
 
+resource "google_project_iam_member" "deployer_owner" {
+  project = var.project_id
+  role    = "roles/owner"
+  member  = "serviceAccount:${google_service_account.deployer.email}"
+}
+
 # Enable required APIs
 resource "google_project_service" "sts" {
   project                    = var.project_id
