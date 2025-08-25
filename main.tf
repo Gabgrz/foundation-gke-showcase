@@ -8,10 +8,10 @@ terraform {
     }
   }
 
-  backend "gcs" {
-    bucket = "tfstate-gke-showroom"
-    prefix = "terraform/state"
-  }
+  #   backend "gcs" {
+  #     bucket = "tfstate-gke-showroom"
+  #     prefix = "terraform/state"
+  #   }
 }
 
 provider "google" {
@@ -19,27 +19,33 @@ provider "google" {
   project     = var.project_id
 }
 
-# Create GCS bucket for Terraform state
 resource "google_storage_bucket" "terraform_state" {
-  name          = "tfstate-gke-showroom"
-  location      = "US-EAST1"
-  force_destroy = false
+  name                        = "tfstate-gke-showroom" # must be globally unique
+  location                    = "US-EAST1"             # or "US"
+  storage_class               = "STANDARD"
+  uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
+  force_destroy               = false
 
   versioning {
     enabled = true
   }
 
+  # Keep old versions for 180 days; never delete the live object
   lifecycle_rule {
     condition {
-      age = 30
+      days_since_noncurrent_time = 30 # Deletes only noncurrent versions after 30 days
     }
     action {
       type = "Delete"
     }
   }
 
-  uniform_bucket_level_access = true
+  labels = {
+    purpose = "terraform-state"
+  }
 }
+
 
 # Pool
 resource "google_iam_workload_identity_pool" "github_pool" {
@@ -61,7 +67,7 @@ resource "google_iam_workload_identity_pool_provider" "github_provider" {
   # Map the GitHub claims we’ll use
   attribute_mapping = {
     "google.subject"             = "assertion.sub"
-    "attribute.repository_owner" = "assertion.repository_owner"  # will be your username
+    "attribute.repository_owner" = "assertion.repository_owner" # will be your username
     "attribute.repository"       = "assertion.repository"
     "attribute.ref"              = "assertion.ref"
     "attribute.workflow_ref"     = "assertion.workflow_ref"
