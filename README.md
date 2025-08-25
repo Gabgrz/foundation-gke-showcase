@@ -147,4 +147,4 @@ To set up:
 - **Destroy Resources**: Execute `terraform destroy` for cleanup.
 - **Extensions**: Expand with Terraform modules for your specific infrastructure needs (e.g., compute, storage, networking).
 
-For issues, consult Terraform logs or the GCP console.
+Have fun!
