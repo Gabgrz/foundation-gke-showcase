@@ -15,7 +15,7 @@ terraform {
 }
 
 provider "google" {
-  project     = var.project_id
+  project = var.project_id
 }
 
 resource "google_storage_bucket" "terraform_state" {
