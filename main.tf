@@ -8,10 +8,10 @@ terraform {
     }
   }
 
-  #   backend "gcs" {
-  #     bucket = "tfstate-gke-showroom"
-  #     prefix = "terraform/state"
-  #   }
+  backend "gcs" {
+    bucket = "tfstate-gke-showroom"
+    prefix = "terraform/state"
+  }
 }
 
 provider "google" {
@@ -31,7 +31,6 @@ resource "google_storage_bucket" "terraform_state" {
     enabled = true
   }
 
-  # Keep old versions for 180 days; never delete the live object
   lifecycle_rule {
     condition {
       days_since_noncurrent_time = 30 # Deletes only noncurrent versions after 30 days
@@ -39,6 +38,10 @@ resource "google_storage_bucket" "terraform_state" {
     action {
       type = "Delete"
     }
+  }
+
+  lifecycle {
+    prevent_destroy = true # Prevents accidental TF destroy
   }
 
   labels = {
