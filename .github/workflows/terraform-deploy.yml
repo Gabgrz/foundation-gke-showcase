@@ -1,0 +1,121 @@
+name: Terraform Deploy on Main (Plan → Approval → Apply)
+
+on:
+  push:
+    branches: [ main ]
+  # Optional: allow manual re-runs
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  id-token: write   # Required for GCP Workload Identity
+
+concurrency:
+  group: terraform-${{ github.ref_name }}
+  cancel-in-progress: false   # serialize applies per branch/env
+
+jobs:
+  plan:
+    name: Terraform Plan
+    runs-on: ubuntu-24.04
+    # Lightweight perms for plan; read-only cloud perms on SA recommended
+    environment: gke-showroom
+    env:
+      TF_VAR_project_id: ${{ vars.PROJECT_ID }}
+      TF_VAR_github_org: ${{ vars.GH_ORG }}
+      TF_VAR_github_owner: ${{ vars.GH_OWNER }}
+      TF_VAR_github_repo: ${{ vars.GH_REPO }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.13.0'
+
+      - name: Authenticate to Google Cloud (read-only SA for plan)
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SA }}
+
+      - name: Terraform Init
+        run: terraform init -input=false -backend-config="bucket=${{ secrets.GCP_TF_BUCKET }}"
+
+      - name: Terraform Validate
+        run: terraform validate -no-color
+
+      - name: Terraform Plan (export plan file)
+        run: |
+          terraform plan -input=false -no-color -out=tfplan
+          terraform show -no-color tfplan > plan.txt
+
+      - name: Upload Plan Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan
+          path: |
+            tfplan
+            plan.txt
+
+      - name: Plan Summary
+        run: |
+          echo "## Terraform Plan Complete" >> $GITHUB_STEP_SUMMARY
+          echo "A saved plan is attached as an artifact (tfplan)." >> $GITHUB_STEP_SUMMARY
+          echo "Review the plan, then approve the *Apply* job in the **gke-showroom** environment gate." >> $GITHUB_STEP_SUMMARY
+
+  apply:
+    name: Terraform Apply (requires manual approval)
+    runs-on: ubuntu-24.04
+    needs: plan
+    environment:
+      name: gke-showroom
+      # ⚠️ Configure this environment in repo Settings → Environments
+      # Add **Required reviewers** to enforce a manual approval gate
+    env:
+      TF_VAR_project_id: ${{ vars.PROJECT_ID }}
+      TF_VAR_github_org: ${{ vars.GH_ORG }}
+      TF_VAR_github_owner: ${{ vars.GH_OWNER }}
+      TF_VAR_github_repo: ${{ vars.GH_REPO }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.13.0'
+
+      - name: Authenticate to Google Cloud (elevated SA for apply)
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SA }}
+
+      - name: Terraform Init
+        run: terraform init -input=false -backend-config="bucket=${{ secrets.GCP_TF_BUCKET }}"
+
+      - name: Download Saved Plan
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-plan
+          path: .
+
+      - name: Sanity Re-Plan (detect drift vs merged main)
+        # Exit 0 (no changes) or 2 (changes) is OK; any other is error
+        run: |
+          terraform plan -input=false -no-color -detailed-exitcode ||
+          exit_code=$?; if [ "$exit_code" != "0" ] && [ "$exit_code" != "2" ]; then exit $exit_code; fi
+
+      - name: Terraform Apply (from approved plan)
+        run: terraform apply -input=false -auto-approve tfplan
+
+      - name: Apply Summary
+        run: |
+          echo "## Terraform Apply Complete" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Infrastructure changes have been successfully applied." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployment completed at:** $(date -u)" >> $GITHUB_STEP_SUMMARY
