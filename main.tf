@@ -51,7 +51,7 @@ resource "google_iam_workload_identity_pool_provider" "github_provider" {
 
 resource "google_service_account" "deployer" {
   account_id   = "deployer"
-  display_name = "Deployer Service Account"
+  display_name = "Deployer SA"
 }
 
 resource "google_service_account_iam_member" "github_any_repo_under_me" {
